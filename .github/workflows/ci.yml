@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    # Every UIKit-dependent file in the core is behind `#if canImport(UIKit)`,
+    # so a Linux/ubuntu build would compile the entire iOS surface out and
+    # this gate would pass having verified only the pure parsers.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+      - name: Build for iOS Simulator
+        run: xcodebuild -scheme DodoCheckout -destination 'generic/platform=iOS Simulator' build
