@@ -6,17 +6,30 @@ on:
     tags: ["v*"]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
-    # Every UIKit-dependent file in the core is behind `#if canImport(UIKit)`,
-    # so a Linux/ubuntu build would compile the entire iOS surface out and
-    # this gate would pass having verified only the pure parsers.
+    # The iOS surface (DodoCheckout.start, SafariCheckoutSession, handleOpenURL)
+    # is behind `#if canImport(UIKit)`, which is false on both Linux and native
+    # macOS — only the xcodebuild simulator step below actually compiles it.
+    # Pinned to macos-26 (not macos-latest) because swift-tools-version 6.2
+    # requires the Xcode 26 toolchain.
     runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
       - name: Build
         run: swift build
       - name: Test
         run: swift test
       - name: Build for iOS Simulator
-        run: xcodebuild -scheme DodoCheckout -destination 'generic/platform=iOS Simulator' build
+        run: xcodebuild -quiet -scheme DodoCheckout -destination 'generic/platform=iOS Simulator' build
