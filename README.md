@@ -124,4 +124,6 @@ func reconcileAbandonedSession() async {
 After any thrown error, check `getAbandonedSession()` too — most platform
 failures happen before anything is recorded, but a presentation that timed
 out without confirming may still have a session on record, since the sheet
-could be live even though the SDK couldn't confirm it.
+could be live even though the SDK couldn't confirm it. The exception is
+`ALREADY_IN_PROGRESS`: any record you see there belongs to the checkout
+that's still running, not one to reconcile.

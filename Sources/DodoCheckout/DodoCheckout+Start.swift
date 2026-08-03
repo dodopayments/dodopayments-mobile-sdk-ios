@@ -26,7 +26,9 @@ extension DodoCheckout {
     ///   most platform failures happen before anything is recorded, but a
     ///   presentation that timed out without confirming may still have a
     ///   session on record, since the sheet could be live even though the SDK
-    ///   couldn't confirm it.
+    ///   couldn't confirm it. The exception is `.alreadyInProgress`: any
+    ///   record you see there belongs to the checkout that's still running,
+    ///   not one to reconcile.
     @MainActor
     public static func start(
         checkoutUrl: URL,
