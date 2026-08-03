@@ -91,19 +91,26 @@ final class AbandonedSessionStore: @unchecked Sendable {
         store.removeObject(forKey: createdAtKey)
     }
 
-    /// Clears the record only when the checkout produced a *known* outcome.
+    /// Clears the record only when the checkout produced a *durable* outcome.
     ///
-    /// Every status except `.cancelled` was parsed off the return URL, so the
-    /// caller already has the real outcome and there is nothing left to
-    /// reconcile. `.cancelled` is the opposite: it means the user dismissed
-    /// the browser before any return URL arrived, so the SDK learned nothing.
-    /// The payment may well have succeeded — dismissing the sheet while the
-    /// hosted "Payment Successful" page counts down its redirect is
-    /// indistinguishable, from here, from dismissing it before paying at all.
-    /// Keeping the record is what lets the merchant resolve that ambiguity
-    /// server-side instead of guessing (and showing a false failure screen).
+    /// `.cancelled` means the user dismissed the browser before any return URL
+    /// arrived, so the SDK learned nothing — the payment may well have
+    /// succeeded (dismissing while the hosted "Payment Successful" page counts
+    /// down its redirect is indistinguishable, from here, from dismissing
+    /// before paying at all). `.pending` is the same kind of non-answer: it's
+    /// also `ResultParser.mapStatus`'s fallback for a missing or unrecognized
+    /// `status`, so a malformed return URL lands here too, with `paymentId`
+    /// and `subscriptionId` both potentially `nil` — clearing then would leave
+    /// no handle at all, worse than the bug this method exists to fix. An
+    /// exhaustive `switch` rather than a `.cancelled`-only guard, so a future
+    /// status is a compile error here instead of silently falling through to
+    /// "clear".
     func clearIfOutcomeKnown(_ status: CheckoutStatus) {
-        guard status != .cancelled else { return }
-        clear()
+        switch status {
+        case .succeeded, .failed, .expired:
+            clear()
+        case .cancelled, .pending:
+            break
+        }
     }
 }

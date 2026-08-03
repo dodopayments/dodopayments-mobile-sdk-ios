@@ -49,8 +49,19 @@ final class AbandonedSessionStoreTests: XCTestCase {
         XCTAssertEqual(subject.current()?.sessionId, "cks_xyz")
     }
 
+    /// `.pending` is `ResultParser.mapStatus`'s fallback for a missing or
+    /// unrecognized `status`, so a malformed return URL lands here too — with
+    /// `paymentId` and `subscriptionId` both potentially `nil`. Clearing would
+    /// leave no handle at all, worse than the `.cancelled` case above.
+    func testPendingKeepsSessionForReconciliation() {
+        let subject = AbandonedSessionStore(store: FakeStore())
+        subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/session/cks_xyz")!)
+        subject.clearIfOutcomeKnown(.pending)
+        XCTAssertEqual(subject.current()?.sessionId, "cks_xyz")
+    }
+
     func testResolvedOutcomesClearSession() {
-        for status in [CheckoutStatus.succeeded, .failed, .pending, .expired] {
+        for status in [CheckoutStatus.succeeded, .failed, .expired] {
             let subject = AbandonedSessionStore(store: FakeStore())
             subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/session/cks_xyz")!)
             subject.clearIfOutcomeKnown(status)

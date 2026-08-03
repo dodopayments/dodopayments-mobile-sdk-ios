@@ -86,9 +86,11 @@ Resolve it instead: the SDK keeps the session on record for exactly this case.
 
 ## Abandoned sessions
 
-A session stays on record whenever the SDK never saw the return URL — the app
-was killed mid-checkout, or `start` returned `.cancelled`. Reconcile it
-server-side, both on next launch and right after a `.cancelled` result:
+A session stays on record whenever the SDK never saw a return URL it could
+resolve to a durable outcome — the app was killed mid-checkout, `start`
+returned `.cancelled`, or it returned `.pending` from an unparseable return
+URL rather than a genuinely async payment method. Reconcile it server-side,
+both on next launch and right after a `.cancelled` or `.pending` result:
 
 ```swift
 import DodoCheckout
@@ -101,9 +103,13 @@ func reconcileAbandonedSession() async {
     // Ask *your* backend what happened to abandoned.sessionId — it has the
     // webhook (`payment.succeeded`) or can call Get Payment Detail with your
     // secret key. Show a spinner while you wait; an async method may still be
-    // settling, so treat "no record yet" as pending, not failed.
+    // settling, so treat "no record yet" as pending, not failed — and only
+    // clear the record once you have a terminal outcome, or a later retry
+    // has nothing left to reconcile against if this one comes back.
     let outcome = await myBackend.outcome(forSession: abandoned.sessionId)
-    DodoCheckout.clearAbandonedSession()
+    if outcome.isTerminal {
+        DodoCheckout.clearAbandonedSession()
+    }
     show(outcome)
 }
 ```

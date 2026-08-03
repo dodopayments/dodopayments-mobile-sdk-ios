@@ -39,6 +39,17 @@ extension DodoCheckout {
             inProgressGuard.end()
             throw CheckoutError(code: .platformError, message: "No view controller available to present the checkout.")
         }
+        // Checked here rather than inside `SafariCheckoutSession.start`, so
+        // this throw — provably before anything is presented — stays outside
+        // the `do` below and never has to decide whether to touch a record
+        // that was never written.
+        guard presenter.presentedViewController == nil else {
+            inProgressGuard.end()
+            throw CheckoutError(
+                code: .platformError,
+                message: "Another view controller is already presented; cannot show the checkout."
+            )
+        }
 
         // Record the session so it survives process death *and* a dismissal
         // that beat the return URL. Recorded only once we know we are actually
@@ -53,24 +64,18 @@ extension DodoCheckout {
             inProgressGuard.end()
         }
 
-        do {
-            let result = try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
-            // Kept on `.cancelled` — see `clearIfOutcomeKnown`. That is the
-            // one outcome the SDK cannot vouch for, and the only one the
-            // merchant still has to reconcile.
-            abandonedStore.clearIfOutcomeKnown(result.status)
-            return result
-        } catch {
-            // Both throws out of `session.start` fire before the sheet is on
-            // screen — the already-presenting guard, and the timeout for a
-            // presentation that never completed. The checkout page never
-            // loaded either way, so there is no payment to reconcile and a
-            // record here would only be a phantom. A *cancelled* checkout does
-            // not come through here: it returns `.cancelled` normally, task
-            // cancellation included.
-            abandonedStore.clear()
-            throw error
-        }
+        // No do/catch: the only way `session.start` throws from here on is the
+        // presentation timeout, guarding against `present`'s completion
+        // handler never running — which is not proof the sheet never appeared,
+        // just that we can't confirm it did. Clearing on that throw would risk
+        // discarding the one handle to a checkout that may actually be live;
+        // leaving the record in place errs the same way `.cancelled` does.
+        let result = try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
+        // Kept on `.cancelled`/`.pending` — see `clearIfOutcomeKnown`. Those
+        // are the outcomes the SDK cannot fully vouch for, and the ones the
+        // merchant still has to reconcile.
+        abandonedStore.clearIfOutcomeKnown(result.status)
+        return result
     }
 
     /// Walks from the key window's root down through presented controllers to

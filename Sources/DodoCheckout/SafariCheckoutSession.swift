@@ -25,16 +25,9 @@ final class SafariCheckoutSession: NSObject {
 
     func start(checkoutUrl: URL, presenter: UIViewController) async throws -> CheckoutResult {
         onEvent?(.opened)
-        // `present` has no failure signal beyond its completion handler
-        // simply never running (e.g. the presenter is already mid-transition
-        // presenting something else) — check upfront rather than attempt a
-        // presentation UIKit is going to silently drop.
-        guard presenter.presentedViewController == nil else {
-            throw CheckoutError(
-                code: .platformError,
-                message: "Another view controller is already presented; cannot show the checkout."
-            )
-        }
+        // The already-presenting check lives in `DodoCheckout.start`, before
+        // this is called — it needs to throw outside that caller's abandoned-
+        // session bookkeeping, which this function has no visibility into.
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
