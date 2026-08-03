@@ -1,10 +1,15 @@
 import Foundation
 
-/// A checkout the app was killed or dismissed in the middle of.
+/// A checkout that ended without a durable outcome — the app was killed
+/// mid-flow, the user dismissed the browser (`.cancelled`), or the return URL
+/// couldn't be resolved to a definite result (`.pending`).
 ///
-/// The SDK cannot know the payment's real outcome after the process dies — the
-/// merchant reconciles it server-side (webhook or `payments.retrieve`). This
-/// record only tells the app *that* a checkout was interrupted.
+/// The SDK never learns the payment's real outcome in any of these cases: it
+/// holds no API key, and `.pending` is also `ResultParser.mapStatus`'s
+/// fallback for a missing or unrecognized `status`, so a malformed return URL
+/// lands there too. The merchant reconciles the session server-side (webhook
+/// or `payments.retrieve`). This record only tells the app *that* a checkout
+/// was interrupted, and which session it was.
 public struct AbandonedSession: Sendable, Equatable {
     public let sessionId: String
     public let createdAt: Date
@@ -33,8 +38,9 @@ extension UserDefaults: KeyValueStore {
     }
 }
 
-/// Records the in-flight session so it survives process death, and clears it on
-/// a clean finish. Stores just enough to identify the session for reconciliation.
+/// Records the in-flight session so it survives process death, and clears it
+/// once the outcome is durable — see `clearIfOutcomeKnown`. Stores just enough
+/// to identify the session for reconciliation.
 ///
 /// `@unchecked Sendable` with an internal lock: the store is process-wide and
 /// may be touched from the main-actor checkout path and from launch-time
@@ -86,5 +92,28 @@ final class AbandonedSessionStore: @unchecked Sendable {
         defer { lock.unlock() }
         store.removeObject(forKey: sessionKey)
         store.removeObject(forKey: createdAtKey)
+    }
+
+    /// Clears the record only when the checkout produced a *durable* outcome.
+    ///
+    /// `.cancelled` means the user dismissed the browser before any return URL
+    /// arrived, so the SDK learned nothing — the payment may well have
+    /// succeeded (dismissing while the hosted "Payment Successful" page counts
+    /// down its redirect is indistinguishable, from here, from dismissing
+    /// before paying at all). `.pending` is the same kind of non-answer: it's
+    /// also `ResultParser.mapStatus`'s fallback for a missing or unrecognized
+    /// `status`, so a malformed return URL lands here too, with `paymentId`
+    /// and `subscriptionId` both potentially `nil` — clearing then would leave
+    /// no handle at all, worse than the bug this method exists to fix. An
+    /// exhaustive `switch` rather than a `.cancelled`-only guard, so a future
+    /// status is a compile error here instead of silently falling through to
+    /// "clear".
+    func clearIfOutcomeKnown(_ status: CheckoutStatus) {
+        switch status {
+        case .succeeded, .failed, .expired:
+            clear()
+        case .cancelled, .pending:
+            break
+        }
     }
 }

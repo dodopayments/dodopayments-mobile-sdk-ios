@@ -22,7 +22,13 @@ extension DodoCheckout {
     /// - Returns: A `CheckoutResult` (UI hint — not proof of payment).
     /// - Throws: `CheckoutError` for invalid input, a concurrent checkout, or a
     ///   platform failure. A cancel or a declined payment is a *result*, not a
-    ///   thrown error.
+    ///   thrown error. After any thrown error, check `getAbandonedSession()`:
+    ///   most platform failures happen before anything is recorded, but a
+    ///   presentation that timed out without confirming may still have a
+    ///   session on record, since the sheet could be live even though the SDK
+    ///   couldn't confirm it. The exception is `.alreadyInProgress`: any
+    ///   record you see there belongs to the checkout that's still running,
+    ///   not one to reconcile.
     @MainActor
     public static func start(
         checkoutUrl: URL,
@@ -35,23 +41,42 @@ extension DodoCheckout {
 
         try inProgressGuard.begin()
 
-        // Record the session so it survives process death; cleared on finish.
-        abandonedStore.record(checkoutUrl: checkoutUrl)
-
         guard let presenter = topPresentedViewController() else {
             inProgressGuard.end()
-            abandonedStore.clear()
             throw CheckoutError(code: .platformError, message: "No view controller available to present the checkout.")
         }
+        // No separate "already presenting" guard here: `topPresentedViewController`
+        // only returns once it finds a controller whose `presentedViewController`
+        // is nil, with no suspension point between that and here, so `presenter`
+        // is guaranteed to satisfy it already — checking it again would be dead
+        // code. The actual protection against a presentation that can't proceed
+        // is the 5s timeout inside `SafariCheckoutSession.start`.
+
+        // Record the session so it survives process death *and* a dismissal
+        // that beat the return URL. Recorded only once we know we are actually
+        // presenting, so a pre-presentation failure never leaves the merchant
+        // a phantom session to reconcile.
+        abandonedStore.record(checkoutUrl: checkoutUrl)
 
         let session = SafariCheckoutSession(returnUrl: returnUrl, onEvent: onEvent)
         activeBrowserSession = session
         defer {
             activeBrowserSession = nil
-            abandonedStore.clear()
             inProgressGuard.end()
         }
-        return try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
+
+        // No do/catch: the only way `session.start` throws from here on is the
+        // presentation timeout, guarding against `present`'s completion
+        // handler never running — which is not proof the sheet never appeared,
+        // just that we can't confirm it did. Clearing on that throw would risk
+        // discarding the one handle to a checkout that may actually be live;
+        // leaving the record in place errs the same way `.cancelled` does.
+        let result = try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
+        // Kept on `.cancelled`/`.pending` — see `clearIfOutcomeKnown`. Those
+        // are the outcomes the SDK cannot fully vouch for, and the ones the
+        // merchant still has to reconcile.
+        abandonedStore.clearIfOutcomeKnown(result.status)
+        return result
     }
 
     /// Walks from the key window's root down through presented controllers to

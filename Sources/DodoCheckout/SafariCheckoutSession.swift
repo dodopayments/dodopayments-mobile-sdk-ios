@@ -25,16 +25,6 @@ final class SafariCheckoutSession: NSObject {
 
     func start(checkoutUrl: URL, presenter: UIViewController) async throws -> CheckoutResult {
         onEvent?(.opened)
-        // `present` has no failure signal beyond its completion handler
-        // simply never running (e.g. the presenter is already mid-transition
-        // presenting something else) — check upfront rather than attempt a
-        // presentation UIKit is going to silently drop.
-        guard presenter.presentedViewController == nil else {
-            throw CheckoutError(
-                code: .platformError,
-                message: "Another view controller is already presented; cannot show the checkout."
-            )
-        }
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
@@ -45,13 +35,15 @@ final class SafariCheckoutSession: NSObject {
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
                 }
-                // Defense in depth: if presentation still silently fails to
-                // complete despite the guard above, don't hang forever. Only
-                // counts *foreground* time — if the user backgrounds the app
-                // mid-presentation (e.g. to grab a 2FA code), the sheet's
-                // animation pauses too, so a plain wall-clock timeout would
-                // misfire on a presentation that's actually still going to
-                // complete once they return.
+                // `present` has no failure signal beyond its completion handler
+                // simply never running — e.g. presenting onto a controller that
+                // is itself mid-dismissal, which UIKit silently drops. This
+                // timeout is the only thing that catches that; don't hang
+                // forever. Only counts *foreground* time — if the user
+                // backgrounds the app mid-presentation (e.g. to grab a 2FA
+                // code), the sheet's animation pauses too, so a plain
+                // wall-clock timeout would misfire on a presentation that's
+                // actually still going to complete once they return.
                 Task { @MainActor [weak self] in
                     let tick = 0.5
                     var foregroundSecondsWaited = 0.0

@@ -13,11 +13,23 @@ public enum CheckoutStatus: String, Sendable {
     case succeeded
     /// The payment was declined (`status=failed`).
     case failed
-    /// The user closed the checkout before the return fired.
+    /// The user dismissed the checkout before any return URL arrived.
+    ///
+    /// **This is not a decline — do not show a failure screen for it.** The
+    /// SDK only ever learns the outcome from the return URL, so a dismissal
+    /// leaves the payment's real state unknown. The user may well have paid:
+    /// closing the sheet while the hosted "Payment Successful" page counts
+    /// down its redirect produces exactly this status.
+    ///
+    /// Call `DodoCheckout.getAbandonedSession()` for the `cks_…` session id,
+    /// reconcile it server-side, and show the outcome that comes back.
     case cancelled
     /// The payment will settle later — bank transfers and other async methods
-    /// (`status=processing` or any `requires_*`). The webhook delivers the
-    /// final outcome.
+    /// (`status=processing` or any `requires_*`) — **or** the return URL's
+    /// `status` was missing or unrecognized, which falls back to this same
+    /// case. The SDK can't tell those two apart, so treat it like `.cancelled`:
+    /// call `DodoCheckout.getAbandonedSession()` and reconcile server-side
+    /// rather than assuming the webhook alone will catch up.
     case pending
     /// The checkout session expired before completion.
     case expired

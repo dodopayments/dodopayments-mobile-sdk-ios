@@ -22,8 +22,16 @@ public enum DodoCheckout {
     static let abandonedStore = AbandonedSessionStore()
     @MainActor static let inProgressGuard = InProgressGuard()
 
-    /// The session of a checkout the app was killed or dismissed in the middle
-    /// of, or `nil`. Check this on launch and reconcile server-side.
+    /// The session of a checkout that ended without a confirmed outcome, or
+    /// `nil`.
+    ///
+    /// Set whenever the SDK never saw a return URL it could resolve to a
+    /// durable outcome — the app was killed mid-flow, `start` returned
+    /// `.cancelled` because the user dismissed the browser, or it returned
+    /// `.pending`, which is also the fallback for an unparseable return URL.
+    /// Check it on launch *and* after every `.cancelled` or `.pending` result,
+    /// reconcile the session server-side, then call `clearAbandonedSession()`
+    /// once the outcome is terminal.
     public static func getAbandonedSession() -> AbandonedSession? {
         abandonedStore.current()
     }
