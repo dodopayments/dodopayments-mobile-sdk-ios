@@ -104,8 +104,8 @@ func reconcileAbandonedSession() async {
     // webhook (`payment.succeeded`) or can call Get Payment Detail with your
     // secret key. Show a spinner while you wait; an async method may still be
     // settling, so treat "no record yet" as pending, not failed — and only
-    // clear the record once you have a terminal outcome, or a later retry
-    // has nothing left to reconcile against if this one comes back.
+    // clear the record once you have a terminal outcome, otherwise a later
+    // retry has nothing left to reconcile against if this one comes back.
     let outcome = await myBackend.outcome(forSession: abandoned.sessionId)
     if outcome.isTerminal {
         DodoCheckout.clearAbandonedSession()
@@ -120,3 +120,8 @@ func reconcileAbandonedSession() async {
 `INVALID_CHECKOUT_URL`, `INVALID_RETURN_URL`, `ALREADY_IN_PROGRESS`,
 `PLATFORM_ERROR`. A user cancelling or a declined payment is a **result**
 (`.cancelled` / `.failed`), never a thrown error.
+
+After any thrown error, check `getAbandonedSession()` too — most platform
+failures happen before anything is recorded, but a presentation that timed
+out without confirming may still have a session on record, since the sheet
+could be live even though the SDK couldn't confirm it.

@@ -38,8 +38,9 @@ extension UserDefaults: KeyValueStore {
     }
 }
 
-/// Records the in-flight session so it survives process death, and clears it on
-/// a clean finish. Stores just enough to identify the session for reconciliation.
+/// Records the in-flight session so it survives process death, and clears it
+/// once the outcome is durable — see `clearIfOutcomeKnown`. Stores just enough
+/// to identify the session for reconciliation.
 ///
 /// `@unchecked Sendable` with an internal lock: the store is process-wide and
 /// may be touched from the main-actor checkout path and from launch-time

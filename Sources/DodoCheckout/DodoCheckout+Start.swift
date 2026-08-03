@@ -22,7 +22,11 @@ extension DodoCheckout {
     /// - Returns: A `CheckoutResult` (UI hint — not proof of payment).
     /// - Throws: `CheckoutError` for invalid input, a concurrent checkout, or a
     ///   platform failure. A cancel or a declined payment is a *result*, not a
-    ///   thrown error.
+    ///   thrown error. After any thrown error, check `getAbandonedSession()`:
+    ///   most platform failures happen before anything is recorded, but a
+    ///   presentation that timed out without confirming may still have a
+    ///   session on record, since the sheet could be live even though the SDK
+    ///   couldn't confirm it.
     @MainActor
     public static func start(
         checkoutUrl: URL,
