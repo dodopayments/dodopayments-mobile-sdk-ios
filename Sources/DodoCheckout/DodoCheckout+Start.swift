@@ -35,23 +35,42 @@ extension DodoCheckout {
 
         try inProgressGuard.begin()
 
-        // Record the session so it survives process death; cleared on finish.
-        abandonedStore.record(checkoutUrl: checkoutUrl)
-
         guard let presenter = topPresentedViewController() else {
             inProgressGuard.end()
-            abandonedStore.clear()
             throw CheckoutError(code: .platformError, message: "No view controller available to present the checkout.")
         }
+
+        // Record the session so it survives process death *and* a dismissal
+        // that beat the return URL. Recorded only once we know we are actually
+        // presenting, so a pre-presentation failure never leaves the merchant
+        // a phantom session to reconcile.
+        abandonedStore.record(checkoutUrl: checkoutUrl)
 
         let session = SafariCheckoutSession(returnUrl: returnUrl, onEvent: onEvent)
         activeBrowserSession = session
         defer {
             activeBrowserSession = nil
-            abandonedStore.clear()
             inProgressGuard.end()
         }
-        return try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
+
+        do {
+            let result = try await session.start(checkoutUrl: checkoutUrl, presenter: presenter)
+            // Kept on `.cancelled` — see `clearIfOutcomeKnown`. That is the
+            // one outcome the SDK cannot vouch for, and the only one the
+            // merchant still has to reconcile.
+            abandonedStore.clearIfOutcomeKnown(result.status)
+            return result
+        } catch {
+            // Both throws out of `session.start` fire before the sheet is on
+            // screen — the already-presenting guard, and the timeout for a
+            // presentation that never completed. The checkout page never
+            // loaded either way, so there is no payment to reconcile and a
+            // record here would only be a phantom. A *cancelled* checkout does
+            // not come through here: it returns `.cancelled` normally, task
+            // cancellation included.
+            abandonedStore.clear()
+            throw error
+        }
     }
 
     /// Walks from the key window's root down through presented controllers to

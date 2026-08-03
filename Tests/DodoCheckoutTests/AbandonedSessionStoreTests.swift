@@ -37,6 +37,27 @@ final class AbandonedSessionStoreTests: XCTestCase {
         XCTAssertNil(subject.current())
     }
 
+    /// The reported bug: pay, then tap the sheet's ✕ while the hosted success
+    /// page is still counting down its redirect. The SDK reports `.cancelled`
+    /// because it never saw the return URL, so the session must stay on record
+    /// — that id is the merchant's only handle for reconciling a payment that
+    /// did go through.
+    func testCancelledKeepsSessionForReconciliation() {
+        let subject = AbandonedSessionStore(store: FakeStore())
+        subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/session/cks_xyz")!)
+        subject.clearIfOutcomeKnown(.cancelled)
+        XCTAssertEqual(subject.current()?.sessionId, "cks_xyz")
+    }
+
+    func testResolvedOutcomesClearSession() {
+        for status in [CheckoutStatus.succeeded, .failed, .pending, .expired] {
+            let subject = AbandonedSessionStore(store: FakeStore())
+            subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/session/cks_xyz")!)
+            subject.clearIfOutcomeKnown(status)
+            XCTAssertNil(subject.current(), "\(status) should clear the record")
+        }
+    }
+
     func testNoSessionReturnsNil() {
         XCTAssertNil(AbandonedSessionStore(store: FakeStore()).current())
     }

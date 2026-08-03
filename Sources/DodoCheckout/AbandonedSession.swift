@@ -1,10 +1,13 @@
 import Foundation
 
-/// A checkout the app was killed or dismissed in the middle of.
+/// A checkout that ended without the SDK ever seeing its return URL — the app
+/// was killed mid-flow, or the user dismissed the browser.
 ///
-/// The SDK cannot know the payment's real outcome after the process dies — the
-/// merchant reconciles it server-side (webhook or `payments.retrieve`). This
-/// record only tells the app *that* a checkout was interrupted.
+/// The SDK never learns the payment's real outcome in either case: it holds no
+/// API key and reads the result off the return URL, which never arrived. The
+/// merchant reconciles the session server-side (webhook or `payments.retrieve`).
+/// This record only tells the app *that* a checkout was interrupted, and which
+/// session it was.
 public struct AbandonedSession: Sendable, Equatable {
     public let sessionId: String
     public let createdAt: Date
@@ -86,5 +89,21 @@ final class AbandonedSessionStore: @unchecked Sendable {
         defer { lock.unlock() }
         store.removeObject(forKey: sessionKey)
         store.removeObject(forKey: createdAtKey)
+    }
+
+    /// Clears the record only when the checkout produced a *known* outcome.
+    ///
+    /// Every status except `.cancelled` was parsed off the return URL, so the
+    /// caller already has the real outcome and there is nothing left to
+    /// reconcile. `.cancelled` is the opposite: it means the user dismissed
+    /// the browser before any return URL arrived, so the SDK learned nothing.
+    /// The payment may well have succeeded — dismissing the sheet while the
+    /// hosted "Payment Successful" page counts down its redirect is
+    /// indistinguishable, from here, from dismissing it before paying at all.
+    /// Keeping the record is what lets the merchant resolve that ambiguity
+    /// server-side instead of guessing (and showing a false failure screen).
+    func clearIfOutcomeKnown(_ status: CheckoutStatus) {
+        guard status != .cancelled else { return }
+        clear()
     }
 }
