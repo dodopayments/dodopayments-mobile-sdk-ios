@@ -88,9 +88,9 @@ Resolve it instead: the SDK keeps the session on record for exactly this case.
 
 A session stays on record whenever the SDK never saw a return URL it could
 resolve to a durable outcome — the app was killed mid-checkout, `start`
-returned `.cancelled`, or it returned `.pending` from an unparseable return
-URL rather than a genuinely async payment method. Reconcile it server-side,
-both on next launch and right after a `.cancelled` or `.pending` result:
+returned `.cancelled`, or it returned `.pending` (which is also the fallback
+for an unparseable return URL). Reconcile it server-side, both on next launch
+and right after a `.cancelled` or `.pending` result:
 
 ```swift
 import DodoCheckout

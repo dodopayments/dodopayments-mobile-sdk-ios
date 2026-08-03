@@ -25,8 +25,11 @@ public enum CheckoutStatus: String, Sendable {
     /// reconcile it server-side, and show the outcome that comes back.
     case cancelled
     /// The payment will settle later — bank transfers and other async methods
-    /// (`status=processing` or any `requires_*`). The webhook delivers the
-    /// final outcome.
+    /// (`status=processing` or any `requires_*`) — **or** the return URL's
+    /// `status` was missing or unrecognized, which falls back to this same
+    /// case. The SDK can't tell those two apart, so treat it like `.cancelled`:
+    /// call `DodoCheckout.getAbandonedSession()` and reconcile server-side
+    /// rather than assuming the webhook alone will catch up.
     case pending
     /// The checkout session expired before completion.
     case expired

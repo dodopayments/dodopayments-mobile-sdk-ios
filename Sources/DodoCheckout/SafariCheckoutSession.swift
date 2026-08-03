@@ -35,13 +35,15 @@ final class SafariCheckoutSession: NSObject {
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
                 }
-                // Defense in depth: if presentation still silently fails to
-                // complete despite the guard above, don't hang forever. Only
-                // counts *foreground* time — if the user backgrounds the app
-                // mid-presentation (e.g. to grab a 2FA code), the sheet's
-                // animation pauses too, so a plain wall-clock timeout would
-                // misfire on a presentation that's actually still going to
-                // complete once they return.
+                // `present` has no failure signal beyond its completion handler
+                // simply never running — e.g. presenting onto a controller that
+                // is itself mid-dismissal, which UIKit silently drops. This
+                // timeout is the only thing that catches that; don't hang
+                // forever. Only counts *foreground* time — if the user
+                // backgrounds the app mid-presentation (e.g. to grab a 2FA
+                // code), the sheet's animation pauses too, so a plain
+                // wall-clock timeout would misfire on a presentation that's
+                // actually still going to complete once they return.
                 Task { @MainActor [weak self] in
                     let tick = 0.5
                     var foregroundSecondsWaited = 0.0
