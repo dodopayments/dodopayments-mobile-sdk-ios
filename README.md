@@ -38,10 +38,10 @@ let result = try await DodoCheckout.start(
 )
 
 switch result.status {
-case .succeeded: showSuccess(result.paymentId)   // UI only — confirm server-side
+case .succeeded: showSuccess(result.paymentId)         // UI only — confirm server-side
 case .failed:    showFailure()
-case .cancelled: reconcileAbandonedSession()      // outcome unknown — NOT a failure
-case .pending:   showPending()                    // settles later; webhook is authority
+case .cancelled: await reconcileAbandonedSession()      // outcome unknown — NOT a failure
+case .pending:   await reconcileAbandonedSession()      // may be unparsed, not just async
 case .expired:   showExpired()
 }
 ```

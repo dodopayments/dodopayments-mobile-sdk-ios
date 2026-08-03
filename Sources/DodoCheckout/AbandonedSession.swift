@@ -1,13 +1,15 @@
 import Foundation
 
-/// A checkout that ended without the SDK ever seeing its return URL — the app
-/// was killed mid-flow, or the user dismissed the browser.
+/// A checkout that ended without a durable outcome — the app was killed
+/// mid-flow, the user dismissed the browser (`.cancelled`), or the return URL
+/// couldn't be resolved to a definite result (`.pending`).
 ///
-/// The SDK never learns the payment's real outcome in either case: it holds no
-/// API key and reads the result off the return URL, which never arrived. The
-/// merchant reconciles the session server-side (webhook or `payments.retrieve`).
-/// This record only tells the app *that* a checkout was interrupted, and which
-/// session it was.
+/// The SDK never learns the payment's real outcome in any of these cases: it
+/// holds no API key, and `.pending` is also `ResultParser.mapStatus`'s
+/// fallback for a missing or unrecognized `status`, so a malformed return URL
+/// lands there too. The merchant reconciles the session server-side (webhook
+/// or `payments.retrieve`). This record only tells the app *that* a checkout
+/// was interrupted, and which session it was.
 public struct AbandonedSession: Sendable, Equatable {
     public let sessionId: String
     public let createdAt: Date

@@ -25,9 +25,6 @@ final class SafariCheckoutSession: NSObject {
 
     func start(checkoutUrl: URL, presenter: UIViewController) async throws -> CheckoutResult {
         onEvent?(.opened)
-        // The already-presenting check lives in `DodoCheckout.start`, before
-        // this is called — it needs to throw outside that caller's abandoned-
-        // session bookkeeping, which this function has no visibility into.
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation

@@ -39,17 +39,12 @@ extension DodoCheckout {
             inProgressGuard.end()
             throw CheckoutError(code: .platformError, message: "No view controller available to present the checkout.")
         }
-        // Checked here rather than inside `SafariCheckoutSession.start`, so
-        // this throw — provably before anything is presented — stays outside
-        // the `do` below and never has to decide whether to touch a record
-        // that was never written.
-        guard presenter.presentedViewController == nil else {
-            inProgressGuard.end()
-            throw CheckoutError(
-                code: .platformError,
-                message: "Another view controller is already presented; cannot show the checkout."
-            )
-        }
+        // No separate "already presenting" guard here: `topPresentedViewController`
+        // only returns once it finds a controller whose `presentedViewController`
+        // is nil, with no suspension point between that and here, so `presenter`
+        // is guaranteed to satisfy it already — checking it again would be dead
+        // code. The actual protection against a presentation that can't proceed
+        // is the 5s timeout inside `SafariCheckoutSession.start`.
 
         // Record the session so it survives process death *and* a dismissal
         // that beat the return URL. Recorded only once we know we are actually
