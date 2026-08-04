@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Fix: swiping down to dismiss the checkout sheet left `start`'s
+  continuation unresumed, since `safariViewControllerDidFinish` only fires
+  for the "Done" button tap, not the interactive swipe-to-dismiss on a
+  `.pageSheet`. Wires `UIAdaptivePresentationControllerDelegate` to catch
+  that case too and resolves with `.cancelled`, same as the Done button.
+
 ## 1.0.1
 
 - Fix: a `.cancelled` or `.pending` result no longer wipes the abandoned-session

@@ -31,6 +31,7 @@ final class SafariCheckoutSession: NSObject {
                 let safari = SFSafariViewController(url: checkoutUrl)
                 safari.delegate = self
                 safari.modalPresentationStyle = .pageSheet
+                safari.presentationController?.delegate = self
                 safariViewController = safari
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
@@ -116,6 +117,17 @@ extension SafariCheckoutSession: SFSafariViewControllerDelegate {
         MainActor.assumeIsolated {
             // The system is already dismissing the view controller here —
             // don't dismiss again, just resume.
+            finish(with: CheckoutResult(status: .cancelled), dismiss: false)
+        }
+    }
+}
+
+extension SafariCheckoutSession: UIAdaptivePresentationControllerDelegate {
+    // Fires for the interactive swipe-to-dismiss on the `.pageSheet`, which
+    // `safariViewControllerDidFinish` doesn't cover — that one only fires for
+    // the "Done" button tap.
+    nonisolated func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        MainActor.assumeIsolated {
             finish(with: CheckoutResult(status: .cancelled), dismiss: false)
         }
     }
