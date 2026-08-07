@@ -11,6 +11,7 @@ import UIKit
 @MainActor
 final class SafariCheckoutSession: NSObject {
     private let matcher: ReturnUrlMatcher
+    private let customization: BrowserCustomization
     private let onEvent: (@Sendable (CheckoutEvent) -> Void)?
 
     private weak var safariViewController: SFSafariViewController?
@@ -18,8 +19,13 @@ final class SafariCheckoutSession: NSObject {
     private var resumed = false
     private var didConfirmPresentation = false
 
-    init(returnUrl: URL, onEvent: (@Sendable (CheckoutEvent) -> Void)?) {
+    init(
+        returnUrl: URL,
+        customization: BrowserCustomization,
+        onEvent: (@Sendable (CheckoutEvent) -> Void)?
+    ) {
         self.matcher = ReturnUrlMatcher(returnUrl: returnUrl)
+        self.customization = customization
         self.onEvent = onEvent
     }
 
@@ -28,10 +34,27 @@ final class SafariCheckoutSession: NSObject {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
-                let safari = SFSafariViewController(url: checkoutUrl)
+                let configuration = SFSafariViewController.Configuration()
+                // `nil` means don't touch this property at all — leave
+                // Configuration()'s own default (currently YES) in place.
+                if let barCollapsingEnabled = customization.barCollapsingEnabled {
+                    configuration.barCollapsingEnabled = barCollapsingEnabled
+                }
+                let safari = SFSafariViewController(url: checkoutUrl, configuration: configuration)
                 safari.delegate = self
-                safari.modalPresentationStyle = .pageSheet
+                // Unlike the other fields, `.pageSheet` here isn't a platform
+                // default we're inferring — it was already this SDK's own
+                // hardcoded choice before this feature existed, so `nil`
+                // resolving to it (rather than skipping the assignment) is
+                // deliberate.
+                safari.modalPresentationStyle = {
+                    switch customization.presentationStyle ?? .pageSheet {
+                    case .pageSheet: return .pageSheet
+                    case .fullScreen: return .fullScreen
+                    }
+                }()
                 safari.presentationController?.delegate = self
+                apply(customization, to: safari)
                 safariViewController = safari
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
@@ -102,6 +125,30 @@ final class SafariCheckoutSession: NSObject {
         let continuation = self.continuation
         self.continuation = nil
         continuation?.resume(throwing: error)
+    }
+
+    private func apply(_ customization: BrowserCustomization, to safari: SFSafariViewController) {
+        // `nil` means don't touch these properties at all — leave whatever
+        // SFSafariViewController's own current default is in place, rather
+        // than asserting a value on the OS's behalf.
+        if let dismissButtonStyle = customization.dismissButtonStyle {
+            safari.dismissButtonStyle = {
+                switch dismissButtonStyle {
+                case .done: return .done
+                case .close: return .close
+                case .cancel: return .cancel
+                }
+            }()
+        }
+        if let colorScheme = customization.colorScheme {
+            safari.overrideUserInterfaceStyle = {
+                switch colorScheme {
+                case .system: return .unspecified
+                case .light: return .light
+                case .dark: return .dark
+                }
+            }()
+        }
     }
 }
 

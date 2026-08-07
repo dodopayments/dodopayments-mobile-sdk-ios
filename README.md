@@ -114,6 +114,10 @@ func reconcileAbandonedSession() async {
 }
 ```
 
+## Customization
+
+The checkout sheet's dismiss button, presentation style, and color scheme can be customized via `customization` on `start(...)`. See the [Appearance Customization docs](https://docs.dodopayments.com/developer-resources/sdks/ios#appearance-customization) for all available options.
+
 ## Errors
 
 `start` throws `CheckoutError` only for misuse or platform failure:

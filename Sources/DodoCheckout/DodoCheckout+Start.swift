@@ -18,6 +18,7 @@ extension DodoCheckout {
     ///     `.onOpenURL` into `DodoCheckout.handleOpenURL(_:)` —
     ///     `SFSafariViewController` has no built-in way to catch its own
     ///     return URL.
+    ///   - customization: Appearance customization for the checkout browser.
     ///   - onEvent: Lifecycle callback for logging/analytics only.
     /// - Returns: A `CheckoutResult` (UI hint — not proof of payment).
     /// - Throws: `CheckoutError` for invalid input, a concurrent checkout, or a
@@ -33,6 +34,7 @@ extension DodoCheckout {
     public static func start(
         checkoutUrl: URL,
         returnUrl: URL,
+        customization: BrowserCustomization = BrowserCustomization(),
         onEvent: (@Sendable (CheckoutEvent) -> Void)? = nil
     ) async throws -> CheckoutResult {
         // Validate before touching any UI.
@@ -58,7 +60,11 @@ extension DodoCheckout {
         // a phantom session to reconcile.
         abandonedStore.record(checkoutUrl: checkoutUrl)
 
-        let session = SafariCheckoutSession(returnUrl: returnUrl, onEvent: onEvent)
+        let session = SafariCheckoutSession(
+            returnUrl: returnUrl,
+            customization: customization,
+            onEvent: onEvent
+        )
         activeBrowserSession = session
         defer {
             activeBrowserSession = nil
