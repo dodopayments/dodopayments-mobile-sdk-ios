@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+- Add `customization` on `DodoCheckout.start`: an optional `BrowserCustomization`
+  covering the sheet's dismiss button style, bar-collapsing behavior,
+  presentation style (page sheet or full screen), and a forced light/dark
+  color scheme. Every field defaults to `nil`, and `nil` means the
+  corresponding `SFSafariViewController` property is never touched at all —
+  the OS's own current behavior applies rather than this SDK asserting a
+  value on its behalf. The one exception is `presentationStyle`, where `nil`
+  resolves to `.pageSheet`, since that was already this SDK's own
+  presentation choice before this option existed.
+
 ## 1.0.2
 
 - Fix: swiping down to dismiss the checkout sheet left `start`'s
