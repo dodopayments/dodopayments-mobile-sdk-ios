@@ -141,17 +141,11 @@ final class BrowserCustomizationTests: XCTestCase {
         XCTAssertEqual(safari.modalPresentationStyle, .pageSheet)
         XCTAssertTrue(safari.delegate === session)
         XCTAssertTrue(safari.presentationController?.delegate === session)
-        // The assertion that actually pins the load-bearing order in
-        // makeSafariViewController. Confirmed by mutation: swapping apply()
-        // and the presentationController access flips this from true to
-        // false, while every other assertion in this file — including the
-        // .fullScreen case in the test above — keeps passing under either
-        // order. That's because a fresh SFSafariViewController's own
-        // untouched default already resolves to a non-sheet presentation
-        // controller, so requesting .fullScreen can't distinguish "applied
-        // in time" from "silently downgraded" — both look identical. Only
-        // .pageSheet, where the SDK's own default has to override that
-        // platform default, actually depends on the ordering.
+        // Confirmed by mutation: swapping apply() and the presentationController
+        // access above flips this to false. .fullScreen (test above) can't
+        // catch that swap — SFSafariViewController's untouched default is
+        // already a non-sheet controller — but .pageSheet, the SDK's own
+        // override of that default, depends on the ordering.
         XCTAssertTrue(safari.presentationController is UISheetPresentationController)
     }
 
