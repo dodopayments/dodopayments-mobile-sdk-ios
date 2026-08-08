@@ -153,8 +153,6 @@ final class BrowserCustomizationTests: XCTestCase {
         // .pageSheet, where the SDK's own default has to override that
         // platform default, actually depends on the ordering.
         XCTAssertTrue(safari.presentationController is UISheetPresentationController)
-        print("DIAG_DEFAULT_IS_SHEET: \(safari.presentationController is UISheetPresentationController)")
-        print("DIAG_DEFAULT_TYPE: \(String(describing: safari.presentationController.map { type(of: $0) }))")
     }
 
     @MainActor
