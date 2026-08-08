@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+import SafariServices
 import UIKit
 
 /// Customizes the `SFSafariViewController` sheet's chrome — the dismiss
@@ -28,6 +29,14 @@ public struct BrowserCustomization: Sendable, Equatable {
         case done
         case close
         case cancel
+
+        var uiKitStyle: SFSafariViewController.DismissButtonStyle {
+            switch self {
+            case .done: return .done
+            case .close: return .close
+            case .cancel: return .cancel
+            }
+        }
     }
 
     /// Maps to `UIViewController.modalPresentationStyle`. `.pageSheet` is a
@@ -40,6 +49,13 @@ public struct BrowserCustomization: Sendable, Equatable {
     public enum PresentationStyle: Sendable, Equatable {
         case pageSheet
         case fullScreen
+
+        var uiKitStyle: UIModalPresentationStyle {
+            switch self {
+            case .pageSheet: return .pageSheet
+            case .fullScreen: return .fullScreen
+            }
+        }
     }
 
     /// Forces the sheet's light/dark appearance regardless of the system
@@ -48,31 +64,31 @@ public struct BrowserCustomization: Sendable, Equatable {
         case system
         case light
         case dark
+
+        var uiKitStyle: UIUserInterfaceStyle {
+            switch self {
+            case .system: return .unspecified
+            case .light: return .light
+            case .dark: return .dark
+            }
+        }
     }
 
-    /// `nil` means `SFSafariViewController.dismissButtonStyle` is never set,
-    /// so the OS's own current default applies (confirmed via
-    /// `SFSafariViewController.h`, currently `.close`) — this property was
-    /// never touched before this feature existed, so this is genuinely
-    /// unchanged behavior, not a value this SDK guesses on the OS's behalf.
+    /// `nil` leaves `SFSafariViewController.dismissButtonStyle` untouched —
+    /// the OS's own current default applies.
     public var dismissButtonStyle: DismissButtonStyle?
-    /// `nil` means `SFSafariViewController.Configuration.barCollapsingEnabled`
-    /// is never set, so the OS's own current default applies (confirmed via
-    /// `SFSafariViewControllerConfiguration.h`, currently `YES`). Only takes
-    /// effect at construction — the configuration can't change once
-    /// presented. Only has a visible effect when `presentationStyle` is
-    /// `.fullScreen` — see `PresentationStyle`.
+    /// `nil` leaves `SFSafariViewController.Configuration.barCollapsingEnabled`
+    /// untouched. Only takes effect at construction — the configuration
+    /// can't change once presented — and only has a visible effect when
+    /// `presentationStyle` is `.fullScreen`.
     public var barCollapsingEnabled: Bool?
     /// `nil` resolves to `.pageSheet` — unlike the other fields, this isn't
-    /// a platform default we're inferring: `.pageSheet` was already the
-    /// SDK's own hardcoded presentation choice before this feature existed
-    /// (confirmed via git history), so `nil` reproducing it is a deliberate
-    /// SDK decision, not a guess about OS behavior.
+    /// a platform default being inferred: `.pageSheet` was already this
+    /// SDK's own hardcoded presentation choice before this feature existed,
+    /// so `nil` reproducing it is a deliberate SDK decision.
     public var presentationStyle: PresentationStyle?
-    /// `nil` means `UIViewController.overrideUserInterfaceStyle` is never
-    /// set, so the OS's own current default applies (`.unspecified`, i.e.
-    /// follow the system setting) — this property was never touched before
-    /// this feature existed.
+    /// `nil` leaves `UIViewController.overrideUserInterfaceStyle` untouched
+    /// — the sheet follows the system light/dark setting.
     public var colorScheme: ColorScheme?
 
     public init(

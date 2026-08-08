@@ -26,5 +26,8 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
-      - name: Build for iOS Simulator
-        run: xcodebuild -quiet -scheme DodoCheckout -destination 'generic/platform=iOS Simulator' build
+      - name: Test on iOS Simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -E '^\s+iPhone' | sed -E 's/^[[:space:]]*(.*) \([-A-F0-9]+\).*/\1/')
+          echo "Using simulator: $DEVICE"
+          xcodebuild -quiet -scheme DodoCheckout -destination "platform=iOS Simulator,name=$DEVICE" test
