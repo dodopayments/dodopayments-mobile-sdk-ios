@@ -95,5 +95,76 @@ final class BrowserCustomizationTests: XCTestCase {
         XCTAssertEqual(safari.overrideUserInterfaceStyle, .dark)
         XCTAssertEqual(safari.modalPresentationStyle, .fullScreen)
     }
+
+    // The two tests above call apply() on a bare controller, which is *not*
+    // the sequence start() actually runs — they'd still pass if the sheet
+    // were assembled in an order UIKit ignores. These exercise the real
+    // factory instead.
+
+    @MainActor
+    func testCustomizationSurvivesTheOrderTheSheetIsActuallyAssembledIn() {
+        // Reading `presentationController` instantiates a presentation
+        // controller from whatever `modalPresentationStyle` is set to at
+        // that moment, and UIKit documents that changing the style
+        // afterwards has no effect on the presentation. So a `.fullScreen`
+        // request only survives if the customization is applied before the
+        // presentation delegate is wired.
+        let session = SafariCheckoutSession(
+            returnUrl: URL(string: "myapp://checkout/return")!,
+            customization: BrowserCustomization(
+                dismissButtonStyle: .close,
+                presentationStyle: .fullScreen,
+                colorScheme: .dark
+            ),
+            onEvent: nil
+        )
+
+        let safari = session.makeSafariViewController(
+            checkoutUrl: URL(string: "https://checkout.dodopayments.com/session")!
+        )
+
+        XCTAssertEqual(safari.modalPresentationStyle, .fullScreen)
+        XCTAssertEqual(safari.dismissButtonStyle, .close)
+        XCTAssertEqual(safari.overrideUserInterfaceStyle, .dark)
+    }
+
+    @MainActor
+    func testDefaultSheetKeepsItsSwipeToDismissDelegateWired() {
+        // presentationControllerDidDismiss is the only thing that reports
+        // the interactive swipe-to-dismiss on the default sheet; if this
+        // delegate is ever left unset, `start` never resumes its
+        // continuation and the caller's `await` hangs forever.
+        let session = SafariCheckoutSession(
+            returnUrl: URL(string: "myapp://checkout/return")!,
+            customization: BrowserCustomization(),
+            onEvent: nil
+        )
+
+        let safari = session.makeSafariViewController(
+            checkoutUrl: URL(string: "https://checkout.dodopayments.com/session")!
+        )
+
+        XCTAssertEqual(safari.modalPresentationStyle, .pageSheet)
+        XCTAssertTrue(safari.delegate === session)
+        XCTAssertTrue(safari.presentationController?.delegate === session)
+    }
+
+    @MainActor
+    func testBarCollapsingIsAppliedToTheConfigurationTheSheetIsBuiltWith() {
+        // barCollapsingEnabled can only be set at construction — the
+        // Configuration is read once at init — so unlike the other fields
+        // it can't be verified through apply().
+        let session = SafariCheckoutSession(
+            returnUrl: URL(string: "myapp://checkout/return")!,
+            customization: BrowserCustomization(barCollapsingEnabled: false),
+            onEvent: nil
+        )
+
+        let safari = session.makeSafariViewController(
+            checkoutUrl: URL(string: "https://checkout.dodopayments.com/session")!
+        )
+
+        XCTAssertFalse(safari.configuration.barCollapsingEnabled)
+    }
 }
 #endif

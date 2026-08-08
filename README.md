@@ -116,7 +116,48 @@ func reconcileAbandonedSession() async {
 
 ## Customization
 
-The checkout sheet's dismiss button, bar-collapsing behavior, presentation style, and color scheme can be customized via `customization` on `start(...)`. See the [Appearance Customization docs](https://docs.dodopayments.com/developer-resources/sdks/ios#appearance-customization) for all available options.
+Pass a `BrowserCustomization` to `start(...)` to adjust the sheet's own chrome:
+
+```swift
+let result = try await DodoCheckout.start(
+    checkoutUrl: checkoutUrl,
+    returnUrl: URL(string: "myapp://checkout/return")!,
+    customization: BrowserCustomization(
+        dismissButtonStyle: .close,
+        barCollapsingEnabled: true,
+        presentationStyle: .fullScreen,
+        colorScheme: .dark
+    )
+)
+```
+
+| Field | Values | Default (`nil`) |
+| --- | --- | --- |
+| `dismissButtonStyle` | `.done`, `.close`, `.cancel` | left untouched — the OS's own current default |
+| `barCollapsingEnabled` | `true`, `false` | left untouched — the OS's own current default |
+| `presentationStyle` | `.pageSheet`, `.fullScreen` | `.pageSheet` |
+| `colorScheme` | `.system`, `.light`, `.dark` | left untouched — follows the system setting |
+
+Every field is optional. `nil` means the SDK never assigns that property at
+all, so the platform's live behavior applies rather than a value this SDK
+guessed on its behalf — the one exception being `presentationStyle`, where
+`nil` resolves to `.pageSheet` because that was already this SDK's own
+presentation choice before the option existed.
+
+Two things worth knowing:
+
+- `colorScheme` themes only the **native chrome** around the page. The
+  checkout page's own light/dark rendering comes from the server-side
+  `customization.theme_config` you set when creating the session, so
+  `colorScheme: .dark` can put dark chrome around a light checkout page.
+  These are two separate settings that happen to share a name.
+- `barCollapsingEnabled` only has a visible effect under
+  `presentationStyle: .fullScreen`. With the default `.pageSheet` the bars
+  stay pinned regardless, so setting it alone does nothing.
+
+There is no `toolbarColor`/`controlTintColor` equivalent: the underlying
+`preferredBarTintColor`/`preferredControlTintColor` are deprecated as of
+iOS 26 with no replacement, and have no visible effect there.
 
 ## Errors
 

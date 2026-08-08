@@ -34,16 +34,7 @@ final class SafariCheckoutSession: NSObject {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
-                let configuration = SFSafariViewController.Configuration()
-                // `nil` means don't touch this property at all — leave
-                // Configuration()'s own default (currently YES) in place.
-                if let barCollapsingEnabled = customization.barCollapsingEnabled {
-                    configuration.barCollapsingEnabled = barCollapsingEnabled
-                }
-                let safari = SFSafariViewController(url: checkoutUrl, configuration: configuration)
-                safari.delegate = self
-                safari.presentationController?.delegate = self
-                apply(customization, to: safari)
+                let safari = makeSafariViewController(checkoutUrl: checkoutUrl)
                 safariViewController = safari
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
@@ -114,6 +105,36 @@ final class SafariCheckoutSession: NSObject {
         let continuation = self.continuation
         self.continuation = nil
         continuation?.resume(throwing: error)
+    }
+
+    /// Builds the sheet with `customization` applied and both delegates wired.
+    ///
+    /// The statement order here is load-bearing, which is why construction
+    /// lives in one place rather than inline at the call site.
+    func makeSafariViewController(checkoutUrl: URL) -> SFSafariViewController {
+        // `barCollapsingEnabled` is the one field that has to be decided
+        // here rather than in `apply`: it lives on the Configuration, which
+        // is read once at init and can't be changed afterwards. `nil` means
+        // don't touch it at all — leave Configuration()'s own default.
+        let configuration = SFSafariViewController.Configuration()
+        if let barCollapsingEnabled = customization.barCollapsingEnabled {
+            configuration.barCollapsingEnabled = barCollapsingEnabled
+        }
+        let safari = SFSafariViewController(url: checkoutUrl, configuration: configuration)
+        safari.delegate = self
+        // `apply` sets `modalPresentationStyle`, and it MUST stay above the
+        // `presentationController` access below. Reading that property
+        // instantiates a presentation controller from whatever
+        // `modalPresentationStyle` says *at that moment*, and UIKit
+        // documents that setting the style afterwards has no effect on the
+        // presentation: "Always set the value of that property before
+        // accessing any presentation controllers."
+        // Swapping these two lines silently downgrades a `.fullScreen`
+        // request back to the default sheet, and risks dropping the
+        // delegate below — the one that reports swipe-to-dismiss.
+        apply(customization, to: safari)
+        safari.presentationController?.delegate = self
+        return safari
     }
 
     func apply(_ customization: BrowserCustomization, to safari: SFSafariViewController) {
