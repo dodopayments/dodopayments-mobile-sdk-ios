@@ -11,6 +11,7 @@ import UIKit
 @MainActor
 final class SafariCheckoutSession: NSObject {
     private let matcher: ReturnUrlMatcher
+    private let customization: BrowserCustomization
     private let onEvent: (@Sendable (CheckoutEvent) -> Void)?
 
     private weak var safariViewController: SFSafariViewController?
@@ -18,8 +19,13 @@ final class SafariCheckoutSession: NSObject {
     private var resumed = false
     private var didConfirmPresentation = false
 
-    init(returnUrl: URL, onEvent: (@Sendable (CheckoutEvent) -> Void)?) {
+    init(
+        returnUrl: URL,
+        customization: BrowserCustomization,
+        onEvent: (@Sendable (CheckoutEvent) -> Void)?
+    ) {
         self.matcher = ReturnUrlMatcher(returnUrl: returnUrl)
+        self.customization = customization
         self.onEvent = onEvent
     }
 
@@ -28,10 +34,7 @@ final class SafariCheckoutSession: NSObject {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
-                let safari = SFSafariViewController(url: checkoutUrl)
-                safari.delegate = self
-                safari.modalPresentationStyle = .pageSheet
-                safari.presentationController?.delegate = self
+                let safari = makeSafariViewController(checkoutUrl: checkoutUrl)
                 safariViewController = safari
                 presenter.present(safari, animated: true) { [weak self] in
                     self?.didConfirmPresentation = true
@@ -102,6 +105,53 @@ final class SafariCheckoutSession: NSObject {
         let continuation = self.continuation
         self.continuation = nil
         continuation?.resume(throwing: error)
+    }
+
+    /// Builds the sheet with `customization` applied and both delegates wired.
+    ///
+    /// The statement order here is load-bearing, which is why construction
+    /// lives in one place rather than inline at the call site.
+    func makeSafariViewController(checkoutUrl: URL) -> SFSafariViewController {
+        // `barCollapsingEnabled` is the one field that has to be decided
+        // here rather than in `apply`: it lives on the Configuration, which
+        // is read once at init and can't be changed afterwards. `nil` means
+        // don't touch it at all — leave Configuration()'s own default.
+        let configuration = SFSafariViewController.Configuration()
+        if let barCollapsingEnabled = customization.barCollapsingEnabled {
+            configuration.barCollapsingEnabled = barCollapsingEnabled
+        }
+        let safari = SFSafariViewController(url: checkoutUrl, configuration: configuration)
+        safari.delegate = self
+        // `apply` sets `modalPresentationStyle`, and it MUST stay above the
+        // `presentationController` access below. Reading that property
+        // instantiates a presentation controller from whatever
+        // `modalPresentationStyle` says *at that moment*, and UIKit
+        // documents that setting the style afterwards has no effect on the
+        // presentation: "Always set the value of that property before
+        // accessing any presentation controllers."
+        // Swapping these two lines silently downgrades a `.fullScreen`
+        // request back to the default sheet, and risks dropping the
+        // delegate below — the one that reports swipe-to-dismiss.
+        apply(customization, to: safari)
+        safari.presentationController?.delegate = self
+        return safari
+    }
+
+    func apply(_ customization: BrowserCustomization, to safari: SFSafariViewController) {
+        // `nil` means don't touch these properties at all — leave whatever
+        // SFSafariViewController's own current default is in place, rather
+        // than asserting a value on the OS's behalf.
+        if let dismissButtonStyle = customization.dismissButtonStyle {
+            safari.dismissButtonStyle = dismissButtonStyle.uiKitStyle
+        }
+        if let colorScheme = customization.colorScheme {
+            safari.overrideUserInterfaceStyle = colorScheme.uiKitStyle
+        }
+        // Unlike the other fields, `.pageSheet` here isn't a platform default
+        // we're inferring — it was already this SDK's own hardcoded choice
+        // before this feature existed, so `nil` resolving to it (rather than
+        // skipping the assignment) is deliberate.
+        safari.modalPresentationStyle = (customization.presentationStyle ?? .pageSheet).uiKitStyle
     }
 }
 
