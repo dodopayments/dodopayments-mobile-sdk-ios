@@ -55,7 +55,8 @@ final class AbandonedSessionStore: @unchecked Sendable {
         self.store = store
     }
 
-    /// Extracts the `cks_…` session id from a checkout URL's `/session/{id}` path.
+    /// Extracts the `cks_…` session id from a checkout URL's `/session/{id}`
+    /// path. Payment link URLs (`confirm: true` sessions) have none.
     static func sessionId(from checkoutUrl: URL) -> String? {
         let parts = checkoutUrl.path.split(separator: "/").map(String.init)
         guard let idx = parts.firstIndex(of: "session"), idx + 1 < parts.count else {
@@ -65,7 +66,12 @@ final class AbandonedSessionStore: @unchecked Sendable {
     }
 
     func record(checkoutUrl: URL, at date: Date = Date()) {
-        guard let sessionId = AbandonedSessionStore.sessionId(from: checkoutUrl) else { return }
+        // The record must always describe the latest checkout, so a URL with
+        // no session id drops any earlier record rather than leaving it stale.
+        guard let sessionId = AbandonedSessionStore.sessionId(from: checkoutUrl) else {
+            clear()
+            return
+        }
         lock.lock()
         defer { lock.unlock() }
         store.set(sessionId, forKey: sessionKey)

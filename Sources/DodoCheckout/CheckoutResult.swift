@@ -22,7 +22,9 @@ public enum CheckoutStatus: String, Sendable {
     /// down its redirect produces exactly this status.
     ///
     /// Call `DodoCheckout.getAbandonedSession()` for the `cks_…` session id,
-    /// reconcile it server-side, and show the outcome that comes back.
+    /// reconcile it server-side, and show the outcome that comes back. Payment
+    /// link checkouts (`confirm: true`) have no session id on record; use the
+    /// `session_id` / `payment_id` from the create response instead.
     case cancelled
     /// The payment will settle later — bank transfers and other async methods
     /// (`status=processing` or any `requires_*`) — **or** the return URL's
