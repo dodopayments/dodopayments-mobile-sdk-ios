@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - Fix: `checkoutUrl` now also accepts the 8-character payment link URL
   (`https://checkout.dodopayments.com/{id}`) that `POST /checkouts` returns
