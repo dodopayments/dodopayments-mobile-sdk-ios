@@ -9,18 +9,23 @@ enum UrlValidator {
         "test.checkout.dodopayments.com"
     ]
 
-    /// Throws `INVALID_CHECKOUT_URL` unless `url` is an https Dodo checkout
-    /// session URL (`/session/…` path on an allowed host).
+    /// Throws `INVALID_CHECKOUT_URL` unless `url` is an https Dodo checkout URL
+    /// on an allowed host whose path is `/session/…` or an 8-character payment
+    /// link id (what a `confirm: true` session returns).
     static func validateCheckoutUrl(_ url: URL) throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let scheme = components.scheme?.lowercased(),
               scheme == "https",
               let host = components.host?.lowercased(),
               allowedCheckoutHosts.contains(host),
-              components.path.hasPrefix("/session/")
+              components.path.hasPrefix("/session/") || isPaymentLinkPath(components.path)
         else {
             throw CheckoutError.invalidCheckoutUrl
         }
+    }
+
+    private static func isPaymentLinkPath(_ path: String) -> Bool {
+        path.range(of: "^/[A-Za-z0-9_-]{8}/?$", options: .regularExpression) != nil
     }
 
     /// Throws `INVALID_RETURN_URL` unless `url` is a well-formed absolute URL

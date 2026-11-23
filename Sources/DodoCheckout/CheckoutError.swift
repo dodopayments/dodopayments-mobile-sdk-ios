@@ -27,7 +27,7 @@ public struct CheckoutError: Error, Sendable, Equatable {
 
     static let invalidCheckoutUrl = CheckoutError(
         code: .invalidCheckoutUrl,
-        message: "checkoutUrl must be a checkout.dodopayments.com or test.checkout.dodopayments.com /session/ URL."
+        message: "checkoutUrl must be a checkout.dodopayments.com or test.checkout.dodopayments.com /session/ or payment link URL."
     )
     static let invalidReturnUrl = CheckoutError(
         code: .invalidReturnUrl,

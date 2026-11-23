@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Fix: `checkoutUrl` now also accepts the 8-character payment link URL
+  (`https://checkout.dodopayments.com/{id}`) that `POST /checkouts` returns
+  when `confirm: true`, matching the web checkout SDK. `/session/…` URLs are
+  validated as before. `getAbandonedSession()` records nothing for payment
+  link URLs, since they carry no `cks_…` id; reconcile those with the
+  `session_id` / `payment_id` from the create response.
+
 ## 1.1.0
 
 - Add `customization` on `DodoCheckout.start`: an optional `BrowserCustomization`

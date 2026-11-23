@@ -9,7 +9,8 @@ extension DodoCheckout {
     /// - Parameters:
     ///   - checkoutUrl: The session URL from your backend. Must be a
     ///     `checkout.dodopayments.com` / `test.checkout.dodopayments.com`
-    ///     `/session/…` URL.
+    ///     `/session/…` URL, or the `/{paymentLinkId}` URL a `confirm: true`
+    ///     session returns.
     ///   - returnUrl: The URL the SDK watches for. Any absolute URL the
     ///     checkout ends up navigating to; matched on scheme+host+path. Its
     ///     scheme must be registered as a URL type in Info.plist, so the OS
