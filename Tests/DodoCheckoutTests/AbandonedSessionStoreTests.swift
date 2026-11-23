@@ -72,4 +72,13 @@ final class AbandonedSessionStoreTests: XCTestCase {
     func testNoSessionReturnsNil() {
         XCTAssertNil(AbandonedSessionStore(store: FakeStore()).current())
     }
+
+    func testPaymentLinkUrlClearsEarlierRecord() {
+        let store = FakeStore()
+        let subject = AbandonedSessionStore(store: store)
+        subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/session/cks_xyz")!)
+        subject.record(checkoutUrl: URL(string: "https://checkout.dodopayments.com/je0vj2kM")!)
+        XCTAssertNil(subject.current())
+        XCTAssertEqual(store.values, [:])
+    }
 }

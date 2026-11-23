@@ -24,6 +24,27 @@ final class ValidationAndRoutingTests: XCTestCase {
         try UrlValidator.validateCheckoutUrl(URL(string: "https://test.checkout.dodopayments.com/session/cks_test_1")!)
     }
 
+    func testPaymentLinkCheckoutUrlPasses() throws {
+        try UrlValidator.validateCheckoutUrl(URL(string: "https://test.checkout.dodopayments.com/je0vj2kM?theme=system&showOrderDetails=true&showOnDemandTag=true")!)
+        try UrlValidator.validateCheckoutUrl(URL(string: "https://checkout.dodopayments.com/aB3_x-9Z")!)
+    }
+
+    func testMalformedPaymentLinkCheckoutUrlThrows() {
+        let bad = [
+            "https://checkout.dodopayments.com/je0vj2k",
+            "https://checkout.dodopayments.com/je0vj2kMx",
+            "https://checkout.dodopayments.com/je0vj2kM/extra",
+            "https://checkout.dodopayments.com/je0v.2kM",
+            "https://evil.com/je0vj2kM",
+            "http://checkout.dodopayments.com/je0vj2kM"
+        ]
+        for url in bad {
+            XCTAssertThrowsError(try UrlValidator.validateCheckoutUrl(URL(string: url)!), url) { error in
+                XCTAssertEqual((error as? CheckoutError)?.code, .invalidCheckoutUrl)
+            }
+        }
+    }
+
     // U11: malformed returnUrl → INVALID_RETURN_URL.
     func testInvalidReturnUrlThrows() {
         let bad = URL(string: "not-a-url")!
